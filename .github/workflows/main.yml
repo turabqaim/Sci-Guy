@@ -50,10 +50,17 @@ jobs:
 
       - name: Install Tailscale
         run: |
-          # stable URL = always the latest build, nothing to go stale
-          curl.exe -fSL -o "$env:TEMP\tailscale.msi" https://pkgs.tailscale.com/stable/tailscale-setup-amd64.msi
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$env:TEMP\tailscale.msi`"", "/quiet", "/norestart" -Wait
-          Remove-Item "$env:TEMP\tailscale.msi" -Force
+          # Pinned to a version verified working today. If this ever 404s,
+          # grab the latest from https://pkgs.tailscale.com/stable/ and
+          # update the two lines below.
+          $msi = "$env:TEMP\tailscale-setup-1.102.3-amd64.msi"
+          curl.exe -fSL -o $msi "https://pkgs.tailscale.com/stable/tailscale-setup-1.102.3-amd64.msi"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $msi)) {
+            Write-Error "Tailscale download failed (404? update the version line)"
+            exit 1
+          }
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait
+          Remove-Item $msi -Force
 
       - name: Establish Tailscale Connection
         env:
