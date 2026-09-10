@@ -61,19 +61,22 @@ jobs:
         run: |
           if (-not $env:TAILSCALE_AUTH_KEY) { Write-Error "TAILSCALE_AUTH_KEY secret is missing"; exit 1 }
 
+          # Fixed hostname = the RDP address NEVER changes, even when the IP does
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up `
-            --authkey="$env:TAILSCALE_AUTH_KEY" --hostname=gh-runner-$env:GITHUB_RUN_ID
+            --authkey="$env:TAILSCALE_AUTH_KEY" --hostname=rdpbox
 
           # Wait until the node is actually online
           $tsIP = $null
+          $tsName = ''
           for ($i = 0; $i -lt 12; $i++) {
             $status = & "$env:ProgramFiles\Tailscale\tailscale.exe" status --json | ConvertFrom-Json
-            if ($status.Self.Online) { $tsIP = $status.Self.TailscaleIPs[0]; break }
+            if ($status.Self.Online) { $tsIP = $status.Self.TailscaleIPs[0]; $tsName = $status.Self.DNSName; break }
             Start-Sleep -Seconds 5
           }
 
           if (-not $tsIP) { Write-Error "Tailscale IP not assigned. Exiting."; exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          echo "TAILSCALE_HOST=$tsName" >> $env:GITHUB_ENV
 
       - name: Verify RDP Accessibility
         run: |
@@ -87,7 +90,8 @@ jobs:
 
       - name: Maintain Connection
         run: |
-          Write-Host "Address:  $env:TAILSCALE_IP"
+          Write-Host "Name:     $env:TAILSCALE_HOST  <- type THIS in RDP, it never changes"
+          Write-Host "Address:  $env:TAILSCALE_IP  (changes every run, don't bother)"
           Write-Host "Username: RDP"
           Write-Host "Password: $env:RDP_PASSWORD"
 
